@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: backend
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/sites:/app/sites
+      - ./backend/data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.tudominio.com`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    command: ["npm", "run", "build"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`tudominio.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+    restart: always
+    volumes:
+      - ./frontend:/app
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: gitrender
+      POSTGRES_PASSWORD: superpassword
+      POSTGRES_DB: gitrenderdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=tuemail@dominio.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./letsencrypt:/letsencrypt
+    restart: always
+
+volumes:
+  pgdata:
